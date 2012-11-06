@@ -20,11 +20,79 @@ module Fog
 
       class Mock
 
+        class Response
+          def initialize status, body
+            @body = body
+            @status = status
+          end
+        end
+
         def initialize(options={})
-          Fog::Mock.not_implemented
+          @stacks = []
+          setup_credentials(options)
+        end
+
+        def setup_credentials(options)
+          @aws_access_key_id ||= options[:aws_access_key_id]
+          @aws_secret_access_key ||= options[:aws_secret_access_key]
+        end
+
+        def describe_stacks options = {}
+          Response.new(200, generate_response(options))
+        end
+
+        def create_stack(server_name, options)
+          @stacks << fake_stack(server_name, options)
+          Response.new(200, generate_response(options))
+        end
+
+        def delete_stack(server_name)
+          stack = @stacks.find{|el| el["StackName"] == server_name}
+          if stack 
+            @stacks.delete_at(@stacks.index(stack))
+            Response.new(200, generate_response(options))
+          else
+            Response.new(500, generate_response(options))
+          end
+        end
+
+        private
+        def fake_stack(server_name, options)
+          {
+            "Outputs" => [
+              {"OutputValue" => "ec2-54-242-31-112.compute-1.amazonaws.com", "OutputKey"=>"WebsiteURL"}, 
+              {"OutputValue" => @aws_access_key_id, "OutputKey"=>"AccessKey"}, 
+              {"OutputValue" => @aws_secret_access_key, "OutputKey"=>"SecretKey"}, 
+              {"OutputValue" => "#{@server_name}-ov-s3bucket-e6410r2rz7ud", "OutputKey"=>"S3BucketName"}
+            ],
+            "Parameters" => [
+              {"ParameterValue" => options["Parameters"]["SecurityGroup"], "ParameterKey"=>"SecurityGroup"}, 
+              {"ParameterValue" => options["Parameters"]["ChefDefaultRole"], "ParameterKey"=>"ChefDefaultRole"}, 
+              {"ParameterValue" => options["Parameters"]["StorageCapacity"], "ParameterKey"=>"StorageCapacity"}, 
+              {"ParameterValue" => options["Parameters"]["ChefServerUrl"], "ParameterKey"=>"ChefServerUrl"}, 
+              {"ParameterValue" => options["Parameters"]["KeyName"], "ParameterKey"=>"KeyName"}, 
+              {"ParameterValue" => options["Parameters"]["InstanceType"], "ParameterKey"=>"InstanceType"}, 
+              {"ParameterValue" => options["Parameters"]["ChefNodeName"], "ParameterKey"=>"ChefNodeName"}, 
+              {"ParameterValue" => options["Parameters"]["AmiId"], "ParameterKey"=>"AmiId"}
+            ], 
+            "Capabilities" => options["Capabilities"], 
+            "StackId" => "arn:aws:cloudformation:us-east-1:871928509102:stack/handlers001-OV/da62bbc0-236c-11e2-9a07-502554c56486", 
+            "StackStatus" => "CREATE_COMPLETE", 
+            "StackName" => server_name, 
+            "CreationTime" => Time.now, 
+            "DisableRollback" => false
+          }
+        end
+
+        def generate_response options
+          @body = {
+            'Stacks' => (option['StackName'] ? @stacks.find_all {|stack| stack["StackName"] == option['StackName']} : @stacks), 
+            'StackId' => ''
+          }
         end
 
       end
+
 
       class Real
         include Fog::AWS::CredentialFetcher::ConnectionMethods
