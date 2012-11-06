@@ -21,6 +21,7 @@ module Fog
       class Mock
 
         class Response
+          attr_accessor :body, :status
           def initialize status, body
             @body = body
             @status = status
@@ -86,7 +87,7 @@ module Fog
 
         def generate_response options
           @body = {
-            'Stacks' => (option['StackName'] ? @stacks.find_all {|stack| stack["StackName"] == option['StackName']} : @stacks), 
+            'Stacks' => (options['StackName'].blank? ? @stacks : @stacks.find {|stack| stack["StackName"] == options['StackName']}), 
             'StackId' => ''
           }
         end
